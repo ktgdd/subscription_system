@@ -1,0 +1,149 @@
+Subscription Service Database Schema - Quick Reference
+
+================================================================================
+1. subscription_accounts
+================================================================================
+Netflix, Amazon, Spotify etc.
+
+Columns:
+- id (PK)
+- name (unique)
+- description
+- logo_url
+- is_active
+- created_at, updated_at
+
+================================================================================
+2. duration_types
+================================================================================
+WEEKLY (7 days), MONTHLY (30 days), YEARLY (365 days)
+
+Columns:
+- id (PK)
+- type (WEEKLY, MONTHLY, YEARLY - unique)
+- days
+- description
+- created_at
+
+================================================================================
+3. subscription_plans
+================================================================================
+Plans for each account + duration type. Only one active per account+duration_type.
+
+Columns:
+- id (PK)
+- subscription_account_id (FK -> subscription_accounts)
+- duration_type_id (FK -> duration_types)
+- amount (price, must be > 0)
+- currency (default USD)
+- name, description
+- features (JSONB)
+- is_active
+- created_at, updated_at
+- deleted_at (soft delete)
+
+Business rule: Only one active plan per account+duration_type. Admin soft deletes old plan before creating new one.
+
+================================================================================
+4. book_keeping
+================================================================================
+Write-ahead log. Source of truth for all subscription events.
+
+Columns:
+- id (PK)
+- idempotency_key (unique) - format: {user_id}:{account_id}:{duration_type_id}:{request_id}
+- user_id
+- subscription_plan_id (FK -> subscription_plans) - historical reference
+- subscription_account_id (denormalized)
+- duration_type_id (denormalized)
+- event_type (SUBSCRIBED, EXTENDED, CANCELLED, EXPIRED)
+- status (INITIATED, COMPLETED, PROCESSED, FAILED)
+- before_state (JSONB)
+- after_state (JSONB)
+- payment_reference_id
+- created_at (when INITIATED)
+- completed_at (when payment service marks COMPLETED)
+- processed_at (when materialized to user_subscriptions)
+- retry_count
+- error_message
+
+Flow: INITIATED (frontend) -> COMPLETED (payment service) -> PROCESSED (async processor)
+
+================================================================================
+5. user_subscriptions
+================================================================================
+Current state of user subscriptions. Materialized from book_keeping.
+
+Columns:
+- id (PK)
+- user_id
+- subscription_account_id (FK -> subscription_accounts) - references account, not plan version
+- duration_type_id (FK -> duration_types)
+- start_date
+- end_date (can only be elongated, never shortened)
+- status (ACTIVE, CANCELLED, EXPIRED)
+- created_at, last_updated_at
+
+Unique constraint: Only one active subscription per (user_id, subscription_account_id, duration_type_id)
+
+================================================================================
+6. rules_engine
+================================================================================
+Admin-configurable business rules.
+
+Columns:
+- id (PK)
+- rule_key (unique)
+- rule_name
+- rule_value (text/JSON)
+- rule_type (MAX_EXTENSION_DAYS, COOLDOWN_SECONDS, etc.)
+- description
+- is_active
+- created_at, updated_at
+
+Default rules:
+- MAX_EXTENSION_DAYS: 730 (2 years)
+- COOLDOWN_SECONDS: 10
+- MAX_SUBSCRIPTION_DURATION_DAYS: 730
+
+================================================================================
+Key Relationships
+================================================================================
+subscription_accounts (1) -> (N) subscription_plans
+duration_types (1) -> (N) subscription_plans
+subscription_plans (1) -> (N) book_keeping
+subscription_accounts (1) -> (N) user_subscriptions
+duration_types (1) -> (N) user_subscriptions
+
+================================================================================
+Important Notes
+================================================================================
+- Book keeping is written first (synchronous), then materialized to user_subscriptions (async)
+- Idempotency key prevents duplicates (also checked in Redis with 10s TTL)
+- Subscription plans can be elongated/shortened by admin, but user subscription end dates can only be elongated
+- user_subscriptions stores account_id, not plan_id, so it survives plan deletion
+- book_keeping stores plan_id for historical reference
+- Only one active plan per account+duration_type (enforced at app level)
+
+================================================================================
+Common Queries
+================================================================================
+
+Get active plans for account:
+SELECT * FROM subscription_plans 
+WHERE subscription_account_id = ? AND is_active = true AND deleted_at IS NULL;
+
+Get user's active subscriptions:
+SELECT * FROM user_subscriptions 
+WHERE user_id = ? AND status = 'ACTIVE' AND end_date > NOW();
+
+Get pending book keeping entries for processing:
+SELECT * FROM book_keeping 
+WHERE status = 'COMPLETED' AND processed_at IS NULL 
+ORDER BY completed_at ASC;
+
+Check subscription validity:
+SELECT * FROM user_subscriptions 
+WHERE user_id = ? AND subscription_account_id = ? AND duration_type_id = ? 
+  AND status = 'ACTIVE' AND end_date > NOW();
+
