@@ -102,6 +102,12 @@
 			<version>2.1.0</version>
 		</dependency>
 
+		<!-- WebClient for reactive HTTP -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+
 		<!-- Test -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
