@@ -14,6 +14,7 @@ public class AppProperties {
     private ThreadPool threadPool = new ThreadPool();
     private Cache cache = new Cache();
     private Idempotency idempotency = new Idempotency();
+    private Kafka kafka = new Kafka();
 
     public Jwt getJwt() {
         return jwt;
@@ -69,6 +70,14 @@ public class AppProperties {
 
     public void setIdempotency(Idempotency idempotency) {
         this.idempotency = idempotency;
+    }
+
+    public Kafka getKafka() {
+        return kafka;
+    }
+
+    public void setKafka(Kafka kafka) {
+        this.kafka = kafka;
     }
 
     public static class Jwt {
@@ -332,6 +341,18 @@ public class AppProperties {
 
         public void setRedisTtlSeconds(int redisTtlSeconds) {
             this.redisTtlSeconds = redisTtlSeconds;
+        }
+    }
+
+    public static class Kafka {
+        private String topicBookKeeping = "book-keeping-events";
+
+        public String getTopicBookKeeping() {
+            return topicBookKeeping;
+        }
+
+        public void setTopicBookKeeping(String topicBookKeeping) {
+            this.topicBookKeeping = topicBookKeeping;
         }
     }
 }
