@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
@@ -35,11 +36,22 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             String token = authHeader.substring(7);
             SecretKey key = Keys.hmacShaKeyFor(appProperties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8));
             
-            Claims claims = Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+            Claims claims;
+            try {
+                claims = Jwts.parser()
+                        .verifyWith(key)
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
+            } catch (ExpiredJwtException e) {
+                // In debug mode, allow expired tokens
+                if (appProperties.getJwt().isDebugMode() && appProperties.getJwt().isDebugSkipExpiryValidation()) {
+                    log.warn("DEBUG MODE: Allowing expired JWT token - expiry validation is disabled");
+                    claims = e.getClaims();
+                } else {
+                    throw e;
+                }
+            }
 
             // Store claims in request attributes for use in controllers/services
             request.setAttribute("userId", Long.parseLong(claims.get(appProperties.getJwt().getUserIdClaim(), String.class)));

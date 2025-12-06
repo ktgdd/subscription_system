@@ -2,6 +2,7 @@ package com.example.subscription.service.impl;
 
 import com.example.subscription.cache.SubscriptionPlanCache;
 import com.example.subscription.model.SubscriptionPlan;
+import com.example.subscription.observability.BusinessMetrics;
 import com.example.subscription.repository.SubscriptionPlanRepository;
 import com.example.subscription.service.SubscriptionPlanService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
     
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionPlanCache subscriptionPlanCache;
+    private final BusinessMetrics businessMetrics;
 
     @Override
     public List<SubscriptionPlan> getActivePlansByAccount(Long accountId) {
@@ -70,6 +72,9 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
         subscriptionPlanCache.cachePlan(saved).subscribe();
         subscriptionPlanCache.invalidateAccountPlans(saved.getSubscriptionAccountId()).subscribe();
         
+        // Record metrics
+        businessMetrics.recordPlanCreated(saved.getSubscriptionAccountId());
+        
         log.info("Created subscription plan: id={}, accountId={}", saved.getId(), saved.getSubscriptionAccountId());
         return saved;
     }
@@ -91,6 +96,9 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService {
         // Invalidate cache
         subscriptionPlanCache.invalidatePlan(saved.getId()).subscribe();
         subscriptionPlanCache.invalidateAccountPlans(saved.getSubscriptionAccountId()).subscribe();
+        
+        // Record metrics
+        businessMetrics.recordPlanUpdated(saved.getSubscriptionAccountId());
         
         return saved;
     }

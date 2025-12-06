@@ -2,8 +2,10 @@ package com.example.subscription.service.impl;
 
 import com.example.subscription.config.AppProperties;
 import com.example.subscription.model.BookKeeping;
+import com.example.subscription.observability.BusinessMetrics;
 import com.example.subscription.service.BookKeepingService;
 import com.example.subscription.service.PaymentService;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,9 +24,11 @@ public class PaymentServiceImpl implements PaymentService {
     private final AppProperties appProperties;
     private final WebClient.Builder webClientBuilder;
     private final BookKeepingService bookKeepingService;
+    private final BusinessMetrics businessMetrics;
 
     @Override
     public void processPayment(BookKeeping bookKeeping) {
+        Timer.Sample timer = businessMetrics.startPaymentTimer();
         WebClient webClient = webClientBuilder
                 .baseUrl(appProperties.getPayment().getServiceUrl())
                 .build();
@@ -53,10 +57,14 @@ public class PaymentServiceImpl implements PaymentService {
                     result -> {
                         String paymentReferenceId = (String) result.get("paymentReferenceId");
                         bookKeepingService.markAsCompleted(bookKeeping.getId(), paymentReferenceId);
+                        businessMetrics.recordPaymentProcessed("success");
+                        businessMetrics.recordPaymentDuration(timer, "success");
                         log.info("Payment processed successfully: bookKeepingId={}, paymentReferenceId={}", 
                                 bookKeeping.getId(), paymentReferenceId);
                     },
                     error -> {
+                        businessMetrics.recordPaymentProcessed("failed");
+                        businessMetrics.recordPaymentDuration(timer, "failed");
                         log.error("Payment processing failed after retries: bookKeepingId={}", 
                                 bookKeeping.getId(), error);
                     }

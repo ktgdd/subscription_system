@@ -2,6 +2,7 @@ package com.example.subscription.service.impl;
 
 import com.example.subscription.model.BookKeeping;
 import com.example.subscription.model.UserSubscription;
+import com.example.subscription.observability.BusinessMetrics;
 import com.example.subscription.repository.UserSubscriptionRepository;
 import com.example.subscription.service.UserSubscriptionService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class UserSubscriptionServiceImpl implements UserSubscriptionService {
     
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final BusinessMetrics businessMetrics;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -37,10 +39,17 @@ public class UserSubscriptionServiceImpl implements UserSubscriptionService {
             
             if ("SUBSCRIBED".equals(eventType)) {
                 createUserSubscription(bookKeeping, afterState);
+                businessMetrics.recordSubscriptionCreated(
+                        bookKeeping.getSubscriptionAccountId(), 
+                        bookKeeping.getDurationTypeId().toString());
             } else if ("EXTENDED".equals(eventType)) {
                 extendUserSubscription(bookKeeping, afterState);
+                businessMetrics.recordSubscriptionExtended(
+                        bookKeeping.getSubscriptionAccountId(), 
+                        bookKeeping.getDurationTypeId().toString());
             }
             
+            businessMetrics.recordBookKeepingEvent(eventType, "PROCESSED");
             log.info("Materialized book keeping to user subscription: idempotencyKey={}", 
                     bookKeeping.getIdempotencyKey());
         } catch (Exception e) {

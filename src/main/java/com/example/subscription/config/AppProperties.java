@@ -86,6 +86,8 @@ public class AppProperties {
         private String userIdClaim = "user_id";
         private String roleClaim = "role";
         private String requestIdClaim = "request_id";
+        private boolean debugMode = false;
+        private boolean debugSkipExpiryValidation = false;
 
         public String getSecret() {
             return secret;
@@ -125,6 +127,22 @@ public class AppProperties {
 
         public void setRequestIdClaim(String requestIdClaim) {
             this.requestIdClaim = requestIdClaim;
+        }
+
+        public boolean isDebugMode() {
+            return debugMode;
+        }
+
+        public void setDebugMode(boolean debugMode) {
+            this.debugMode = debugMode;
+        }
+
+        public boolean isDebugSkipExpiryValidation() {
+            return debugSkipExpiryValidation;
+        }
+
+        public void setDebugSkipExpiryValidation(boolean debugSkipExpiryValidation) {
+            this.debugSkipExpiryValidation = debugSkipExpiryValidation;
         }
     }
 

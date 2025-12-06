@@ -2,6 +2,7 @@ package com.example.subscription.cache;
 
 import com.example.subscription.config.AppProperties;
 import com.example.subscription.model.SubscriptionPlan;
+import com.example.subscription.observability.BusinessMetrics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class SubscriptionPlanCache {
 
     private final RedisCacheService redisCacheService;
     private final AppProperties appProperties;
+    private final BusinessMetrics businessMetrics;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String CACHE_PREFIX = "subscription:plan";
@@ -43,13 +45,18 @@ public class SubscriptionPlanCache {
         String key = redisCacheService.buildKey(CACHE_PREFIX, planId.toString());
         return redisCacheService.get(key)
                 .flatMap(json -> {
+                    businessMetrics.recordCacheHit("subscription-plan");
                     try {
                         return Mono.just(objectMapper.readValue(json, SubscriptionPlan.class));
                     } catch (JsonProcessingException e) {
                         log.error("Error deserializing subscription plan", e);
                         return Mono.empty();
                     }
-                });
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    businessMetrics.recordCacheMiss("subscription-plan");
+                    return Mono.empty();
+                }));
     }
 
     public Mono<Void> invalidatePlan(Long planId) {
@@ -74,14 +81,21 @@ public class SubscriptionPlanCache {
         String key = redisCacheService.buildKey(ACCOUNT_PLANS_KEY, accountId.toString());
         return redisCacheService.get(key)
                 .flatMap(json -> {
+                    businessMetrics.recordCacheHit("account-plans");
                     try {
-                        return Mono.just(objectMapper.readValue(json, 
-                            objectMapper.getTypeFactory().constructCollectionType(List.class, SubscriptionPlan.class)));
+                        @SuppressWarnings("unchecked")
+                        List<SubscriptionPlan> plans = objectMapper.readValue(json, 
+                            objectMapper.getTypeFactory().constructCollectionType(List.class, SubscriptionPlan.class));
+                        return Mono.just(plans);
                     } catch (JsonProcessingException e) {
                         log.error("Error deserializing account plans", e);
                         return Mono.empty();
                     }
-                });
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    businessMetrics.recordCacheMiss("account-plans");
+                    return Mono.empty();
+                }));
     }
 
     public Mono<Void> invalidateAccountPlans(Long accountId) {
