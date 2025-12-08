@@ -15,6 +15,7 @@ public class WebConfig implements WebMvcConfigurer {
     private final JwtAuthInterceptor jwtAuthInterceptor;
     private final RoleAuthorizationInterceptor roleAuthorizationInterceptor;
     private final RequestLoggingInterceptor requestLoggingInterceptor;
+    private final com.example.subscription.middleware.RateLimitingInterceptor rateLimitingInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -25,6 +26,11 @@ public class WebConfig implements WebMvcConfigurer {
         
         // JWT authentication
         registry.addInterceptor(jwtAuthInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/health", "/actuator/**");
+        
+        // Rate limiting (after authentication to get userId)
+        registry.addInterceptor(rateLimitingInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/health", "/actuator/**");
         

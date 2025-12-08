@@ -2,6 +2,7 @@ package com.example.subscription.service.impl;
 
 import com.example.subscription.model.BookKeeping;
 import com.example.subscription.model.UserSubscription;
+import com.example.subscription.notification.NotificationService;
 import com.example.subscription.observability.BusinessMetrics;
 import com.example.subscription.repository.UserSubscriptionRepository;
 import com.example.subscription.service.UserSubscriptionService;
@@ -24,6 +25,7 @@ public class UserSubscriptionServiceImpl implements UserSubscriptionService {
     
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final BusinessMetrics businessMetrics;
+    private final NotificationService notificationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -69,7 +71,10 @@ public class UserSubscriptionServiceImpl implements UserSubscriptionService {
         subscription.setCreatedAt(LocalDateTime.now());
         subscription.setLastUpdatedAt(LocalDateTime.now());
         
-        userSubscriptionRepository.save(subscription);
+        UserSubscription saved = userSubscriptionRepository.save(subscription);
+        
+        // Send notification
+        notificationService.notifySubscriptionCreated(saved);
     }
 
     private void extendUserSubscription(BookKeeping bookKeeping, Map<String, Object> afterState) {
@@ -82,7 +87,10 @@ public class UserSubscriptionServiceImpl implements UserSubscriptionService {
         existing.setEndDate(LocalDate.parse(afterState.get("end_date").toString()));
         existing.setLastUpdatedAt(LocalDateTime.now());
         
-        userSubscriptionRepository.save(existing);
+        UserSubscription saved = userSubscriptionRepository.save(existing);
+        
+        // Send notification
+        notificationService.notifySubscriptionExtended(saved);
     }
 
     @Override

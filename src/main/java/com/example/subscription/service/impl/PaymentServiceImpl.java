@@ -3,8 +3,10 @@ package com.example.subscription.service.impl;
 import com.example.subscription.config.AppProperties;
 import com.example.subscription.model.BookKeeping;
 import com.example.subscription.observability.BusinessMetrics;
+import com.example.subscription.resilience.CircuitBreakerService;
 import com.example.subscription.service.BookKeepingService;
 import com.example.subscription.service.PaymentService;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,10 +27,21 @@ public class PaymentServiceImpl implements PaymentService {
     private final WebClient.Builder webClientBuilder;
     private final BookKeepingService bookKeepingService;
     private final BusinessMetrics businessMetrics;
+    private final CircuitBreakerService circuitBreakerService;
 
     @Override
     public void processPayment(BookKeeping bookKeeping) {
         Timer.Sample timer = businessMetrics.startPaymentTimer();
+        CircuitBreaker circuitBreaker = circuitBreakerService.getPaymentServiceCircuitBreaker();
+        
+        // Check circuit breaker state
+        if (circuitBreaker.getState() == CircuitBreaker.State.OPEN) {
+            log.warn("Circuit breaker is OPEN for payment service, skipping payment processing: bookKeepingId={}", 
+                    bookKeeping.getId());
+            businessMetrics.recordPaymentProcessed("circuit_breaker_open");
+            return;
+        }
+
         WebClient webClient = webClientBuilder
                 .baseUrl(appProperties.getPayment().getServiceUrl())
                 .build();
@@ -40,6 +53,7 @@ public class PaymentServiceImpl implements PaymentService {
             "subscriptionPlanId", bookKeeping.getSubscriptionPlanId()
         );
 
+        // Wrap in circuit breaker using Resilience4j Reactor
         webClient.post()
                 .uri("/process")
                 .bodyValue(paymentRequest)
@@ -49,6 +63,7 @@ public class PaymentServiceImpl implements PaymentService {
                     return Mono.error(new RuntimeException("Payment processing failed"));
                 })
                 .bodyToMono(Map.class)
+                .transform(io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator.of(circuitBreaker))
                 .retryWhen(Retry.fixedDelay(
                     appProperties.getPayment().getRetry().getMaxAttempts(),
                     Duration.ofMillis(appProperties.getPayment().getRetry().getDelay())
