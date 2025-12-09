@@ -231,7 +231,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"subscriptionPlanId\": 1\n}",
+							"raw": "{\n  \"subscriptionId\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -243,7 +243,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "subscriptions", "1", "extend"]
 						},
-						"description": "Extend an existing subscription. Payment processing happens asynchronously."
+						"description": "Extend an existing subscription. The subscriptionId in the path should match the subscriptionId in the body. Payment processing happens asynchronously."
 					},
 					"response": []
 				},
