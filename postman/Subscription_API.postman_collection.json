@@ -1,0 +1,380 @@
+{
+	"info": {
+		"_postman_id": "subscription-api-collection",
+		"name": "Subscription Management API",
+		"description": "Complete API collection for Subscription Management Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Check if the service is up and running"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Subscription Plans (Admin)",
+			"item": [
+				{
+					"name": "Get All Plans",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/subscription-plans?accountId=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscription-plans"],
+							"query": [
+								{
+									"key": "accountId",
+									"value": "1",
+									"description": "Optional: Filter by account ID"
+								}
+							]
+						},
+						"description": "Get all subscription plans, optionally filtered by account ID. Requires ADMIN role."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Plan by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/subscription-plans/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscription-plans", "1"]
+						},
+						"description": "Get a specific subscription plan by ID. Requires ADMIN role."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Subscription Plan",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionAccountId\": 1,\n  \"durationTypeId\": 2,\n  \"amount\": 9.99,\n  \"currency\": \"USD\",\n  \"name\": \"Netflix Monthly Plan\",\n  \"description\": \"Monthly subscription for Netflix\",\n  \"features\": \"{\\\"hd_quality\\\": true, \\\"4k_quality\\\": false}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/subscription-plans",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscription-plans"]
+						},
+						"description": "Create a new subscription plan. Requires ADMIN role."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Subscription Plan",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": 12.99,\n  \"currency\": \"USD\",\n  \"name\": \"Netflix Monthly Plan Updated\",\n  \"description\": \"Updated description\",\n  \"features\": \"{\\\"hd_quality\\\": true, \\\"4k_quality\\\": true}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/subscription-plans/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscription-plans", "1"]
+						},
+						"description": "Update an existing subscription plan. Requires ADMIN role."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Subscription Plan",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{adminToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/subscription-plans/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscription-plans", "1"]
+						},
+						"description": "Soft delete a subscription plan. Requires ADMIN role."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User Subscriptions",
+			"item": [
+				{
+					"name": "Subscribe to Plan",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "X-Correlation-ID",
+								"value": "{{$guid}}",
+								"type": "text",
+								"description": "Optional correlation ID for tracing"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionPlanId\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/subscriptions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscriptions"]
+						},
+						"description": "Subscribe to a subscription plan. Payment processing happens asynchronously."
+					},
+					"response": []
+				},
+				{
+					"name": "Extend Subscription",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "X-Correlation-ID",
+								"value": "{{$guid}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionPlanId\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/subscriptions/1/extend",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscriptions", "1", "extend"]
+						},
+						"description": "Extend an existing subscription. Payment processing happens asynchronously."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Subscriptions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/subscriptions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscriptions"]
+						},
+						"description": "Get all subscriptions for the authenticated user."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Subscription by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{userToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/subscriptions/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "subscriptions", "1"]
+						},
+						"description": "Get a specific subscription by ID for the authenticated user."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Actuator Endpoints",
+			"item": [
+				{
+					"name": "Health Check (Actuator)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Spring Boot Actuator health check endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics",
+							"host": ["{{baseUrl}}"],
+							"path": ["actuator", "metrics"]
+						},
+						"description": "Get all available metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Prometheus Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/prometheus",
+							"host": ["{{baseUrl}}"],
+							"path": ["actuator", "prometheus"]
+						},
+						"description": "Prometheus-formatted metrics endpoint"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "adminToken",
+			"value": "your-admin-jwt-token-here",
+			"type": "string",
+			"description": "JWT token with ADMIN role"
+		},
+		{
+			"key": "userToken",
+			"value": "your-user-jwt-token-here",
+			"type": "string",
+			"description": "JWT token with USER role"
+		}
+	]
+}
+

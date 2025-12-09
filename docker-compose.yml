@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: subscription-postgres
+    environment:
+      POSTGRES_DB: subscription_db
+      POSTGRES_USER: subscription_user
+      POSTGRES_PASSWORD: subscription_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U subscription_user -d subscription_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - subscription-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: subscription-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - subscription-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: subscription-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - subscription-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: subscription-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - subscription-network
+
+  subscription-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: subscription-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # Database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/subscription_db
+      SPRING_DATASOURCE_USERNAME: subscription_user
+      SPRING_DATASOURCE_PASSWORD: subscription_pass
+      
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      APP_KAFKA_TOPIC_BOOK_KEEPING: book-keeping-events
+      SPRING_KAFKA_CONSUMER_GROUP_ID: subscription-service-group
+      
+      # JWT
+      APP_JWT_SECRET: your-secret-key-change-in-production-min-256-bits
+      APP_JWT_USER_ID_CLAIM: userId
+      APP_JWT_ROLE_CLAIM: role
+      APP_JWT_REQUEST_ID_CLAIM: requestId
+      APP_JWT_DEBUG_MODE: "false"
+      
+      # Payment Service (Mock)
+      APP_PAYMENT_SERVICE_URL: http://payment-service:8080/api/payments
+      APP_PAYMENT_SERVICE_TIMEOUT_SECONDS: 5
+      APP_PAYMENT_SERVICE_RETRY_COUNT: 3
+      
+      # Observability
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,metrics,prometheus,info
+      MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: "true"
+      
+      # Java Options
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - subscription-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  subscription-network:
+    driver: bridge
+
