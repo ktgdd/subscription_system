@@ -1,0 +1,74 @@
+diff --git a/src/main/java/com/example/subscription/config/AppProperties.java b/src/main/java/com/example/subscription/config/AppProperties.java
+index 1a96b2c..86c008c 100644
+--- a/src/main/java/com/example/subscription/config/AppProperties.java
++++ b/src/main/java/com/example/subscription/config/AppProperties.java
+@@ -88,6 +88,7 @@ public class AppProperties {
+         private String requestIdClaim = "request_id";
+         private boolean debugMode = false;
+         private boolean debugSkipExpiryValidation = false;
++        private boolean devBypassEnabled = false;
+ 
+         public String getSecret() {
+             return secret;
+@@ -144,6 +145,14 @@ public class AppProperties {
+         public void setDebugSkipExpiryValidation(boolean debugSkipExpiryValidation) {
+             this.debugSkipExpiryValidation = debugSkipExpiryValidation;
+         }
++
++        public boolean isDevBypassEnabled() {
++            return devBypassEnabled;
++        }
++
++        public void setDevBypassEnabled(boolean devBypassEnabled) {
++            this.devBypassEnabled = devBypassEnabled;
++        }
+     }
+ 
+     public static class Rules {
+diff --git a/src/main/java/com/example/subscription/middleware/JwtAuthInterceptor.java b/src/main/java/com/example/subscription/middleware/JwtAuthInterceptor.java
+index 15992b4..48eeba2 100644
+--- a/src/main/java/com/example/subscription/middleware/JwtAuthInterceptor.java
++++ b/src/main/java/com/example/subscription/middleware/JwtAuthInterceptor.java
+@@ -15,6 +15,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
+ import io.jsonwebtoken.ExpiredJwtException;
+ import javax.crypto.SecretKey;
+ import java.nio.charset.StandardCharsets;
++import java.util.UUID;
+ 
+ @Component
+ @RequiredArgsConstructor
+@@ -25,6 +26,22 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
+ 
+     @Override
+     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
++        // dev bypass for testing
++        if (appProperties.getJwt().isDevBypassEnabled()) {
++            String userId = request.getHeader("X-User-Id");
++            String reqId = request.getHeader("X-Request-Id");
++            String role = request.getHeader("X-Role");
++            
++            if (userId != null) {
++                request.setAttribute("userId", Long.parseLong(userId));
++                request.setAttribute("role", role != null ? role : "USER");
++                // generate request id if not provided
++                String finalReqId = reqId != null ? reqId : UUID.randomUUID().toString();
++                request.setAttribute("requestId", finalReqId);
++                return true;
++            }
++        }
++        
+         String authHeader = request.getHeader("Authorization");
+         
+         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index 792e413..36daba4 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -24,6 +24,7 @@ app.jwt.role-claim=role
+ app.jwt.request-id-claim=request_id
+ app.jwt.debug-mode=false
+ app.jwt.debug-skip-expiry-validation=false
++app.jwt.dev-bypass-enabled=false
+ 
+ # Business Rules (Defaults - can be overridden by rules_engine table)
+ app.rules.max-extension-days=730

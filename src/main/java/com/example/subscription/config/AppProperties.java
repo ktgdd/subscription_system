@@ -88,6 +88,7 @@ public class AppProperties {
         private String requestIdClaim = "request_id";
         private boolean debugMode = false;
         private boolean debugSkipExpiryValidation = false;
+        private boolean devBypassEnabled = false;
 
         public String getSecret() {
             return secret;
@@ -143,6 +144,14 @@ public class AppProperties {
 
         public void setDebugSkipExpiryValidation(boolean debugSkipExpiryValidation) {
             this.debugSkipExpiryValidation = debugSkipExpiryValidation;
+        }
+
+        public boolean isDevBypassEnabled() {
+            return devBypassEnabled;
+        }
+
+        public void setDevBypassEnabled(boolean devBypassEnabled) {
+            this.devBypassEnabled = devBypassEnabled;
         }
     }
 

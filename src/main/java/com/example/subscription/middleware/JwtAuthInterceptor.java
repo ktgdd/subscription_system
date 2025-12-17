@@ -15,6 +15,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import io.jsonwebtoken.ExpiredJwtException;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -25,6 +26,22 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // dev bypass for testing
+        if (appProperties.getJwt().isDevBypassEnabled()) {
+            String userId = request.getHeader("X-User-Id");
+            String reqId = request.getHeader("X-Request-Id");
+            String role = request.getHeader("X-Role");
+            
+            if (userId != null) {
+                request.setAttribute("userId", Long.parseLong(userId));
+                request.setAttribute("role", role != null ? role : "USER");
+                // generate request id if not provided
+                String finalReqId = reqId != null ? reqId : UUID.randomUUID().toString();
+                request.setAttribute("requestId", finalReqId);
+                return true;
+            }
+        }
+        
         String authHeader = request.getHeader("Authorization");
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
